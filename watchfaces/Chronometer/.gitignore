@@ -1,0 +1,40 @@
+# don't check in credentials
+wifi_config.h
+
+app
+/app
+build
+arduino-core
+/arduino-core
+hardware/arduino
+.idea
+.DS_Store
+.directory
+manifest.mf
+nbbuild.xml
+nbproject
+.pio
+# Platformio ignores https://www.toptal.com/developers/gitignore/api/platformio
+
+.pioenvs
+.piolibdeps
+.clang_complete
+.gcc-flags.json
+.pio
+
+# vscode ignores https://www.toptal.com/developers/gitignore/api/visualstudiocode
+
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+*.code-workspace
+
+### VisualStudioCode Patch ###
+# Ignore all local history of files
+.history
+.ionide
+
+# ignore temp files
+.temp
+output.map

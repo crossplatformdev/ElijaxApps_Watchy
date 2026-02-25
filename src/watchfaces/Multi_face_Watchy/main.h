@@ -1,0 +1,123 @@
+#ifndef MAIN_H
+#define MAIN_H
+
+#include "../../watchy/Watchy.h"
+#include "../../sdk/UiSDK.h"
+#include "teko_vis.h"
+#include "analog_vis.h"
+#include "mickey_vis.h"
+#include "bahn_vis.h"
+#include "calendar_vis.h"
+#include "redub_vis.h"
+#include "novel_vis.h"
+#include "captn_vis.h"
+#include "slacker_vis.h"
+#include "train_vis.h"
+
+static RTC_DATA_ATTR int face = 0;
+
+
+class WatchyBrainMultiFace : public Watchy {
+  using Watchy::Watchy;
+  public:
+    void drawWatchFace();
+    void drawWrapText(String text);
+    void drawTeko(float batt);
+    void drawClockface(float batt);
+    void drawMickey(float batt);
+    void drawBahn(float batt);
+    void drawCalendar(float batt);
+    void drawRedub(float batt);
+    void drawPoeFace(float batt);
+    void drawCaptn(float batt);
+    void drawSlacker(float batt);
+    void drawTrain(float batt);
+    virtual void handleButtonPress();//Must be virtual in Watchy.h too
+};
+
+  // Local alias so the bundled headers can keep defining methods as WatchyBrain::...
+  using WatchyBrain = WatchyBrainMultiFace;
+
+#include "teko.h"
+#include "analog.h"
+#include "mickey.h"
+#include "bahn.h"
+#include "calendar.h"
+#include "redub.h"
+#include "novel.h"
+#include "captn.h"
+#include "slacker.h"
+#include "train.h"
+
+void WatchyBrainMultiFace::handleButtonPress() {
+  if (guiState == WATCHFACE_STATE) {
+    //Up and Down switch watch faces
+    uint64_t wakeupBit = esp_sleep_get_ext1_wakeup_status();
+    if (wakeupBit & UP_BTN_MASK) {
+      face--;
+      if (face < 0 ) { face = 9; }
+      RTC.read(currentTime);
+      showWatchFace(true);
+      return;
+    }
+    if (wakeupBit & DOWN_BTN_MASK) {
+      face++;
+      if (face > 9 ) { face = 0; }
+      RTC.read(currentTime);
+      showWatchFace(true);
+      return;
+    }
+    if (wakeupBit & MENU_BTN_MASK) {
+      Watchy::handleButtonPress();
+      return;
+    }
+  } else {Watchy::handleButtonPress();}
+  return;
+}
+
+
+void WatchyBrainMultiFace::drawWatchFace() {
+  // ** UPDATE **
+  //resets step counter at midnight everyday
+  if (currentTime.Hour == 00 && currentTime.Minute == 00) {
+    sensor.resetStepCounter();
+  }
+
+  // ** GET BATTERY **
+  float batt = (getBatteryVoltage()-3.3);
+  if (batt > 1) { batt = 1; } else if (batt < 0) { batt = 0; }
+
+  // ** DRAW WATCHFACE **
+  if (face == 0) {
+    drawTeko(batt);
+  }
+  if (face == 1) {
+    drawClockface(batt);
+  }
+  if (face == 2) {
+    drawMickey(batt);
+  }
+  if (face == 3) {
+    drawBahn(batt);  
+  }
+  if (face == 4) {
+    drawCalendar(batt);
+  }
+  if (face == 5) {
+    drawRedub(batt);
+  }
+  if (face == 6) {
+    drawPoeFace(batt);
+  }
+  if (face == 7) {
+    drawCaptn(batt);
+  }
+  if (face == 8) {
+    drawSlacker(batt);
+  }
+  if (face == 9) {
+    drawTrain(batt);
+  }
+}
+
+#endif

@@ -1,0 +1,28 @@
+{
+  "name": "Watchy-Screen",
+  "version": "1.0.0",
+  "description": "Watchy Screen - Watchy lib with Screens",
+  "authors": [
+    {
+      "name": "charles-haynes",
+      "url": "https://github.com/charles-haynes"
+    }
+  ],
+  "homepage": "https://github.com/charles-haynes/Watchy-Screen",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/charles-haynes/Watchy-Screen.git"
+  },
+  "frameworks": "arduino",
+  "platforms": ["espressif32"],
+  "dependencies": [
+    { "name": "Adafruit GFX Library" },
+    { "name": "Arduino_JSON" },
+    { "name": "DS3232RTC" },
+    { "name": "GxEPD2" },
+    {
+      "name": "WiFiManager",
+      "version": "https://github.com/tzapu/WiFiManager.git#2.0.3-alpha"
+    }
+  ]
+}

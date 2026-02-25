@@ -1,0 +1,32 @@
+# Arduino IDE
+*.ino.bak
+*.ino.orig
+build/
+libraries/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Logs
+*.log
+
+# Backup files
+*.backup
+*.bak
+# IDE files
+.vscode/
+*.swp
+*.swo
+*~

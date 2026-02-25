@@ -1,0 +1,4 @@
+# Arduino IDE build & debug files
+debug_custom.json
+debug.cfg
+esp32.svd

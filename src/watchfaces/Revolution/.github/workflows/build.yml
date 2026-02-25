@@ -1,0 +1,98 @@
+name: Build
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - '**.ino'
+      - '**.cpp'
+      - '**.h'
+      - '.github/workflows/build.yml'
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - master
+    paths:
+      - '**.ino'
+      - '**.cpp'
+      - '**.h'
+      - '.github/workflows/build.yml'
+env:
+  ARTIFACT_FOLDER: artifact
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v2
+      - uses: arduino/compile-sketches@v1
+        with:
+          fqbn: esp32:esp32:esp32
+          platforms: |
+            # Install the ESP32 platform via the Boards Manager
+            # https://github.com/espressif/arduino-esp32/blob/master/docs/arduino-ide/boards_manager.md
+            - name: esp32:esp32
+              source-url: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+          sketch-paths: |
+            - ${{ github.event.repository.name }}.ino
+          libraries: |
+            - name: Watchy
+              version: 1.2.6
+          cli-compile-flags: |
+            - --export-binaries
+            - --build-property
+            - build.partitions=min_spiffs
+            - --build-property
+            - upload.maximum_size=1966080
+          enable-deltas-report: true
+      - name: Prepare the artifact
+        run: mkdir "${FOLDER}" && mv "build/esp32.esp32.esp32/${SKETCH}.ino.bin" "${FOLDER}/${SKETCH}.bin"
+        env:
+          FOLDER: ${{ env.ARTIFACT_FOLDER }}
+          SKETCH: ${{ github.event.repository.name }}
+      - name: Get the short commit SHA
+        id: slug
+        run: echo "::set-output name=sha7::$(echo "${GITHUB_SHA}" | cut -c1-7)"
+      - name: Upload
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ github.event.repository.name }}-${{ steps.slug.outputs.sha7 }}
+          path: ${{ env.ARTIFACT_FOLDER }}
+  release:
+    # Only release when pushing a tag
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    name: Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+      - name: Get the short commit SHA
+        id: slug
+        run: echo "::set-output name=sha7::$(echo ${GITHUB_SHA} | cut -c1-7)"
+      - uses: olegtarasov/get-tag@v2.1
+        id: tagName
+        with:
+          tagRegex: "v(?<version>.*)"
+      - name: Download the build artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ github.event.repository.name }}-${{ steps.slug.outputs.sha7 }}
+          path: ${{ env.ARTIFACT_FOLDER }}
+      - name: Archive the build artifact
+        run: cd "${FOLDER}" && zip -9 -r "../${FILENAME}" *
+        env:
+          FOLDER: ${{ env.ARTIFACT_FOLDER }}
+          FILENAME: ${{ github.event.repository.name }}-${{ steps.tagName.outputs.version }}.zip
+      - name: Create a new release
+        uses: ncipollo/release-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          artifacts: "*.zip"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: true

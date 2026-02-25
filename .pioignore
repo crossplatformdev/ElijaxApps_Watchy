@@ -1,0 +1,20 @@
+# PlatformIO file ignore rules
+#
+# This firmware integrates watchfaces via wrappers under src/os/.
+# Many upstream watchface projects include standalone entrypoints
+# (global watch instance + setup/loop) or are meant to be included
+# directly by those wrappers. If PlatformIO compiles them as separate
+# translation units, the link fails with multiple-definition errors.
+
+# Auto-generated / upstream standalone wrappers
+src/watchfaces/**/*__*.cpp
+
+# Upstream standalone PlatformIO/Arduino entrypoints
+src/watchfaces/**/src/main.cpp
+src/watchfaces/**/src/*.ino.cpp
+
+# Specific sources that are included by wrappers (not compiled directly)
+src/watchfaces/QLock/src/QLock.cpp
+
+# Standalone sketch-style entrypoint (integrated version uses Watchy_Mario.*)
+src/watchfaces/Mario/Mario.cpp
