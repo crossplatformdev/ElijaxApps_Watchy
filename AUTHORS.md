@@ -1,4 +1,4 @@
-Glitchy Firmware — AUTHORS
+ElijaxApps Firmware — AUTHORS
 ===========================
 
 Primary firmware and SDK integration

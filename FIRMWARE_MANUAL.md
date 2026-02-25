@@ -1,4 +1,4 @@
-# Watchy Firmware Manual (Glitchy)
+# Watchy Firmware Manual (ElijaxApps)
 
 Version: 1.0  
 Target hardware: Watchy on ESP32-S3 (`esp32-s3-devkitc-1`)
@@ -7,7 +7,7 @@ Target hardware: Watchy on ESP32-S3 (`esp32-s3-devkitc-1`)
 
 ## 1) What this firmware is
 
-Glitchy is a Watchy firmware build that combines:
+ElijaxApps is a Watchy firmware build that combines:
 
 - A unified rendering SDK (`UiSDK`) for apps and watchfaces
 - A grouped menu system with button-driven navigation
@@ -332,7 +332,7 @@ Build configuration is in [platformio.ini](platformio.ini).
 ## 14) Legal and credits
 
 - License: GNU GPLv3 in [LICENSE](LICENSE)
-- Credits and upstream attributions: [AUTHORS.txt](AUTHORS.txt)
+- Credits and upstream attributions: [AUTHORS.md](AUTHORS.md)
 
 This firmware aggregates works from multiple authors and repositories.
 Please keep attributions intact when redistributing.

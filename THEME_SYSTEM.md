@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Glitchy firmware now includes a **centralized theme polarity system** that manages color inversion for all watchfaces based on their intrinsic default appearance. This ensures proper display in both light and dark modes.
+The ElijaxApps firmware now includes a **centralized theme polarity system** that manages color inversion for all watchfaces based on their intrinsic default appearance. This ensures proper display in both light and dark modes.
 
 ## SDK Architecture
 

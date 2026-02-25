@@ -1,4 +1,4 @@
-# Glitchy — Extended Watchy Firmware
+# ElijaxApps — Extended Watchy Firmware
 
 **Version 1.0** — A feature-rich firmware for [SQFMI Watchy](https://watchy.sqfmi.com/) smartwatches
 
@@ -10,7 +10,7 @@
 
 ## Overview
 
-**Glitchy** is a comprehensive firmware for Watchy smartwatches built on ESP32-S3. It integrates **76+ watchfaces** from the community, a unified **UiSDK framework** for consistent rendering, and a full suite of **network-enabled apps** for productivity and diagnostics.
+**ElijaxApps** is a comprehensive firmware for Watchy smartwatches built on ESP32-S3. It integrates **76+ watchfaces** from the community, a unified **UiSDK framework** for consistent rendering, and a full suite of **network-enabled apps** for productivity and diagnostics.
 
 ### Key Features
 
@@ -25,10 +25,6 @@
 ---
 
 ## Screenshots
-
-| Watchface Examples | Apps |
-|-------------------|------|
-| ![7_SEG](docs/images/7seg.png) ![Analog](docs/images/analog.png) ![Pokemon](docs/images/pokemon.png) | ![Menu](docs/images/menu.png) ![Weather](docs/images/weather.png) |
 
 *76+ watchfaces with themes from retro LCD displays to modern digital art*
 
@@ -221,8 +217,8 @@ void draw(Watchy &watchy) {
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/yourusername/glitchy-watchy
-   cd glitchy-watchy
+   git clone https://github.com/yourusername/ElijaxApps-watchy
+   cd ElijaxApps-watchy
    ```
 
 2. **Install dependencies:**
@@ -285,7 +281,7 @@ void draw(Watchy &watchy) {
 ├── FIRMWARE_MANUAL.md  # User manual (buttons, menus, apps)
 ├── THEME_SYSTEM.md     # Theme/polarity deep dive
 ├── LICENSE             # GPLv3 license
-├── AUTHORS.txt         # Credits and contributors
+├── AUTHORS.md         # Credits and contributors
 └── README.md           # This file
 ```
 
@@ -364,7 +360,7 @@ See [LICENSE](LICENSE) file for full terms.
   Firmware integration, UiSDK framework, theme system, app suite, build system
 
 ### Watchface Authors
-This firmware integrates 76+ community watchfaces. See [AUTHORS.txt](AUTHORS.txt) for complete credits.
+This firmware integrates 76+ community watchfaces. See [AUTHORS.md](AUTHORS.md) for complete credits.
 
 Notable contributors:
 - **Bill Eichner** — Multi_face_Watchy, Slacker, Calendar_WatchFace
@@ -372,7 +368,7 @@ Notable contributors:
 - **My-Key** — Castle_of_Watchy, Kave_Watchy, Skykid_Watch, Digdug_Watch, Dali
 - **rontalman** — Marquee (pixel art)
 - **75thTrombone** — BotWatchy resources
-- *...and many others* (see [AUTHORS.txt](AUTHORS.txt))
+- *...and many others* (see [AUTHORS.md](AUTHORS.md))
 
 ### Libraries and Dependencies
 - **Adafruit GFX Library** — Graphics primitives
@@ -394,8 +390,8 @@ Full dependency list in [platformio.ini](platformio.ini)
 - **SQFMI Forum**: https://forum.sqfmi.com/
 - **Reddit**: [r/Watchy](https://reddit.com/r/Watchy)
 
-**Report issues**: https://github.com/yourusername/glitchy-watchy/issues  
-**Discussions**: https://github.com/yourusername/glitchy-watchy/discussions
+**Report issues**: https://github.com/yourusername/ElijaxApps-watchy/issues  
+**Discussions**: https://github.com/yourusername/ElijaxApps-watchy/discussions
 
 ---
 

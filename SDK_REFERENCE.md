@@ -1,746 +1,529 @@
-# Watchy UiSDK Reference
+# Watchy SDK Reference (src/sdk)
 
-**Version 1.0** — Comprehensive API reference for the Watchy unified display framework
+This document is the single consolidated reference for everything under `src/sdk/**`:
 
----
+- `UiSDK.h/.cpp`
+- `UiTemplates.h/.cpp`
+- `NetUtils.h/.cpp`
+- `WatchfaceRegistry.h/.cpp`
+- `Fonts.h`
+- `UI_TEMPLATES.md` (legacy notes)
 
-## Table of Contents
+It focuses on:
 
-1. [Overview](#overview)
-2. [Core Concepts](#core-concepts)
-3. [Display Wrapper Functions](#display-wrapper-functions)
-4. [UI Spec Structures](#ui-spec-structures)
-5. [Rendering Functions](#rendering-functions)
-6. [Theme System](#theme-system)
-7. [Font Management](#font-management)
-8. [Input Helpers](#input-helpers)
-9. [Best Practices](#best-practices)
-10. [Examples](#examples)
-
----
-
-## Overview
-
-The **UiSDK** is a unified display abstraction layer for Watchy firmware. It provides:
-
-- **Consistent API**: All watchfaces and apps use the same display functions via `UiSDK::` namespace
-- **Theme Support**: Automatic light/dark mode with polarity-aware bitmap inversion
-- **Spec-Based Rendering**: Declarative UI definition using structured specs (text, images, menus, buttons, etc.)
-- **Display Wrapper Functions**: Direct pass-through to `GxEPD2` display primitives with consistent semantics
-
-The SDK sits between your watchface/app code and the underlying e-paper display driver (`ThemeableGxEPD2_BW`), applying theme transformations and providing higher-level UI primitives.
+- API/class/struct inventory
+- how to use each module
+- control-row embedding patterns
+- input behavior and event flow
+- practical conventions to keep app/watchface code clean
 
 ---
 
-## Core Concepts
+## 1) SDK at a glance
 
-### Display Object
+### Layering
 
-All drawing happens through a **display object** passed to your draw functions:
+1. **UiSDK**: low-level drawing + spec-based rendering + theme/polarity + debounced button helper.
+2. **UiTemplates**: higher-level reusable screen loops (menus, viewers, dialogs, history pickers).
+3. **NetUtils**: networking and text-input helpers used by internet apps.
+4. **WatchfaceRegistry**: global watchface dispatch table + selector menu labels.
+5. **Fonts**: bundled Adafruit GFX fonts + tiny bitmap fallback fonts.
 
-```cpp
-void drawWatchface(WatchyGxDisplay &display) {
-    UiSDK::fillScreen(display, GxEPD_WHITE);
-    UiSDK::setFont(display, &FreeMonoBold9pt7b);
-    UiSDK::setCursor(display, 10, 100);
-    UiSDK::setTextColor(display, GxEPD_BLACK);
-    UiSDK::print(display, "Hello!");
-}
-```
+### Display type used everywhere
 
-**Type alias**: `WatchyGxDisplay = ThemeableGxEPD2_BW<WatchyDisplay, WatchyDisplay::HEIGHT>`
+`WatchyGxDisplay` is an alias of `ThemeableGxEPD2_BW<WatchyDisplay, WatchyDisplay::HEIGHT>`.
 
-### Polarity System
-
-Every watchface has an **authored polarity** (how it was originally designed):
-
-- **`WatchfacePolarity::WhiteOnBlack`**: White ink on black paper (e.g., 7_SEG, DOS, StarryHorizon)
-- **`WatchfacePolarity::BlackOnWhite`**: Black ink on white paper (e.g., Pokemon, Tetris, MacPaint)
-
-The **global theme** (`gDarkMode`) can invert this at runtime:
-- **Dark mode enabled** → renders as white-on-black
-- **Light mode enabled** → renders as black-on-white
-
-The SDK automatically computes whether bitmaps/colors need inversion based on:
-1. Authored polarity (`UiSDK::setPolarity()`)
-2. Current global theme (`BASE_POLARITY` macro)
+All render APIs use this display type directly or through `Watchy &watchy`.
 
 ---
 
-## Display Wrapper Functions
+## 2) UiSDK reference
 
-### Screen Setup
+Source: `src/sdk/UiSDK.h`, `src/sdk/UiSDK.cpp`
 
-```cpp
-void UiSDK::init(WatchyGxDisplay &display, uint32_t serial_diag_bitrate = 0, 
-                 bool initial = true, uint16_t reset_duration = 20, 
-                 bool pulldown_rst_mode = false);
-```
-Initialize the display hardware.
+## 2.1 Core enums/types
 
-```cpp
-void UiSDK::setFullWindow(WatchyGxDisplay &display);
-```
-Set drawing window to full screen (200x200 pixels).
+### `enum class WatchfacePolarity`
 
-```cpp
-void UiSDK::setRotation(WatchyGxDisplay &display, uint8_t r);
-```
-Set screen rotation (0-3). Default is 0.
+- `WhiteOnBlack`
+- `BlackOnWhite`
 
-```cpp
-void UiSDK::hibernate(WatchyGxDisplay &display);
-```
-Put display into low-power sleep mode.
+This is the authored polarity of a face/asset. Runtime theme is derived from global `gDarkMode` through `BASE_POLARITY`.
 
-```cpp
-void UiSDK::displayUpdate(WatchyGxDisplay &display, bool full = true);
-```
-Push framebuffer to e-paper panel. Set `full=false` for partial refresh (faster, but can cause ghosting).
+### `enum class UIElementKind`
 
-### Screen Dimensions
+- `Text`, `Button`, `Menu`, `Image`, `Media`
 
-```cpp
-int16_t UiSDK::width(WatchyGxDisplay &display);    // Returns 200
-int16_t UiSDK::height(WatchyGxDisplay &display);   // Returns 200
-```
+Type categorization helper; rendering is done via concrete specs.
 
-### Drawing Primitives
+### `struct Palette`
 
-#### Pixels
+- `fg`, `bg`, `accentFg`, `accentBg`
 
-```cpp
-void UiSDK::drawPixel(WatchyGxDisplay &display, int16_t x, int16_t y, uint16_t color);
-void UiSDK::writePixel(WatchyGxDisplay &display, int16_t x, int16_t y, uint16_t color);
-```
+Computed from polarity. Accent colors are used for selected/highlighted rows.
 
-#### Fill Operations
+### `struct UIControlsRowLayout`
 
-```cpp
-void UiSDK::fillScreen(WatchyGxDisplay &display, uint16_t color);
-void UiSDK::fillRect(WatchyGxDisplay &display, int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
-void UiSDK::fillRoundRect(WatchyGxDisplay &display, int16_t x, int16_t y, int16_t w, int16_t h, int16_t r, uint16_t color);
-void UiSDK::fillCircle(WatchyGxDisplay &display, int16_t x, int16_t y, int16_t r, uint16_t color);
-void UiSDK::fillTriangle(WatchyGxDisplay &display, int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint16_t color);
-```
+- `const char *label`
+- `void (Watchy::*callback)()`
 
-#### Outlines
+Represents one control slot (BACK/UP/ACCEPT/DOWN).
 
-```cpp
-void UiSDK::drawRect(WatchyGxDisplay &display, int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
-void UiSDK::drawRoundRect(WatchyGxDisplay &display, int16_t x, int16_t y, int16_t w, int16_t h, int16_t r, uint16_t color);
-void UiSDK::drawCircle(WatchyGxDisplay &display, int16_t x, int16_t y, int16_t r, uint16_t color);
-void UiSDK::drawTriangle(WatchyGxDisplay &display, int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint16_t color);
-```
+## 2.2 Declarative UI spec structs
 
-#### Lines
+### `UITextSpec`
 
-```cpp
-void UiSDK::drawLine(WatchyGxDisplay &display, int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color);
-void UiSDK::drawFastHLine(WatchyGxDisplay &display, int16_t x, int16_t y, int16_t w, uint16_t color);
-void UiSDK::drawFastVLine(WatchyGxDisplay &display, int16_t x, int16_t y, int16_t h, uint16_t color);
-```
+- position/size: `x`, `y`, optional `w`, `h`
+- style: `font`, `fillBackground`, `invert`
+- content: `String text`
 
-### Bitmaps
+### `UIImageSpec`
 
-```cpp
-void UiSDK::drawBitmap(WatchyGxDisplay &display, int16_t x, int16_t y, 
-                       const uint8_t *bitmap, int16_t w, int16_t h, uint16_t color);
+- `bitmap`, `x`, `y`, `w`, `h`
+- `fromProgmem`, `fillBackground`
+- `polarityAuthored`
 
-void UiSDK::drawBitmap(WatchyGxDisplay &display, int16_t x, int16_t y, 
-                       const uint8_t *bitmap, int16_t w, int16_t h, 
-                       uint16_t color, uint16_t bg);
-```
+### `UIMenuItemSpec`
 
-Draws a monochrome bitmap. Bitmaps should be stored as horizontal byte arrays (MSB first).
+- `String label`
 
-**Parameters**:
-- `x, y`: Top-left corner
-- `bitmap`: Pointer to bitmap data (can be in PROGMEM)
-- `w, h`: Width and height in pixels
-- `color`: Color for set bits (1 pixels)
-- `bg`: Background color for unset bits (0 pixels) — only used in 2-argument version
+### `UIMenuSpec`
 
-### Text Rendering
+- geometry: `x`, `y`, `w`, `h`, `itemHeight`
+- data: `items`, `itemCount`
+- selection/scroll: `selectedIndex`, `startIndex`, `visibleCount`
 
-#### Font Selection
+### `UIButtonSpec`
 
-```cpp
-void UiSDK::setFont(WatchyGxDisplay &display, const GFXfont *font);
-void UiSDK::setFont(WatchyGxDisplay &display);  // Reset to default font
-```
+- `x`, `y`, `w`, `h`, `font`, `label`, `selected`
 
-#### Text Configuration
+### `UICheckboxSpec`
 
-```cpp
-void UiSDK::setCursor(WatchyGxDisplay &display, int16_t x, int16_t y);
-int16_t UiSDK::getCursorX(WatchyGxDisplay &display);
+- `x`, `y`, `font`, `fillBackground`, `label`, `checked`
 
-void UiSDK::setTextColor(WatchyGxDisplay &display, uint16_t c);
-void UiSDK::setTextColor(WatchyGxDisplay &display, uint16_t c, uint16_t bg);
+### `UICallbackSpec`
 
-void UiSDK::setTextSize(WatchyGxDisplay &display, uint8_t s);
-void UiSDK::setTextWrap(WatchyGxDisplay &display, bool w);
-```
+- `void (*draw)(WatchyGxDisplay&, void*)`
+- `void *userData`
 
-#### Text Output
+Use for custom render blocks that do not fit stock spec primitives.
 
-```cpp
-size_t UiSDK::print(WatchyGxDisplay &display, const T &value);
-size_t UiSDK::println(WatchyGxDisplay &display, const T &value);
-```
+### `UIScrollableTextSpec`
 
-Supports `String`, `const char*`, integers, floats, etc.
+- geometry: `x`, `y`, `w`, `h`
+- text source: `text` or external `textRef`
+- viewport: `firstLine`, `maxLines`, `lineHeight`
+- layout: `centered`, `wrapLongLines`, `wrapContinuationAlignRight`
 
-#### Text Measurement
+### `UIAppChromeSpec`
 
-```cpp
-void UiSDK::getTextBounds(WatchyGxDisplay &display, const T &text, 
-                          int16_t x, int16_t y, 
-                          int16_t *x1, int16_t *y1, 
-                          uint16_t *w, uint16_t *h);
-```
+- `beginFullScreen`, `drawControlsRow`, labels, `darkBorder`
 
-Returns the bounding box of text at position `(x,y)`.
+Note: currently `renderApp()` always runs screen init + control-row flow regardless of these toggles; keep this struct as compatibility/future chrome metadata.
 
----
+### `UIAppSpec`
 
-## UI Spec Structures
+Aggregates all element arrays + counts:
 
-Instead of imperative drawing calls, you can define UI layouts declaratively using **spec structures**.
+- `texts`, `images`, `menus`, `buttons`, `checkboxes`, `scrollTexts`, `callbacks`
+- `controls[4]`, `controlCount`
+- optional `chrome`
 
-### UITextSpec
+## 2.3 Theme and polarity APIs
 
-```cpp
-struct UITextSpec {
-    int16_t x, y;           // Position
-    int16_t w, h;           // Size (0 = auto)
-    const GFXfont *font;
-    bool fillBackground;    // Fill bg before drawing?
-    bool invert;            // Invert colors vs theme
-    String text;
-};
-```
+- `setPolarity()`, `getPolarity()`
+- `getThemePolarity()`, `liveThemePolarity()`
+- `polarityForFaceId(uint8_t id)`
+- `watchfaceUsesThemeColors(uint8_t id)`
+- `getWatchfaceBg()`, `getWatchfaceFg()`
 
-### UIImageSpec
+Typical watchface usage:
 
-```cpp
-struct UIImageSpec {
-    const uint8_t *bitmap;
-    int16_t x, y, w, h;
-    bool fromProgmem;
-    bool fillBackground;
-    WatchfacePolarity polarityAuthored;  // How bitmap was designed
-};
-```
+1. Determine authored polarity from face id or explicit value.
+2. Set polarity before drawing assets.
+3. Draw using SDK colors (`getWatchfaceFg/Bg`) where possible.
 
-### UIMenuSpec
+## 2.4 Font registry APIs
 
-```cpp
-struct UIMenuItemSpec {
-    String label;
-};
+- `defaultFont()` (slot 0)
+- `tinyFont5x7()`, `tinyFont6x8()`, `tinyMono6x8()`
+- `registerFont(slot, font)`
+- `getFont(slot)`
 
-struct UIMenuSpec {
-    int16_t x, y, w, h;
-    int16_t itemHeight;
-    const GFXfont *font;
-    const UIMenuItemSpec *items;
-    uint8_t itemCount;
-    int8_t selectedIndex;   // -1 = none
-    uint8_t startIndex;     // First visible item (for scrolling)
-    uint8_t visibleCount;   // Max visible rows (0 = all)
-};
-```
+Registry has 64 slots. Tiny fonts are recognized by sentinel pointers and rendered by custom bitmap glyph path.
 
-### UIButtonSpec
+## 2.5 Rendering functions
 
-```cpp
-struct UIButtonSpec {
-    int16_t x, y, w, h;
-    const GFXfont *font;
-    String label;
-    bool selected;          // Highlighted state
-};
-```
+- `renderText`, `renderImage`, `renderMenu`, `renderButton`, `renderCheckbox`
+- `renderScrollableText`, `renderCallback`
+- `countScrollableTextLines`
+- `drawTextLine`
 
-### UICheckboxSpec
+### Render order inside full app render
 
-```cpp
-struct UICheckboxSpec {
-    int16_t x, y;
-    const GFXfont *font;
-    bool fillBackground;
-    String label;
-    bool checked;           // [x] vs [ ]
-};
-```
+`renderApp()` paints in this order:
 
-### UIScrollableTextSpec
+1. `initScreen()`
+2. control-row handling (`renderControlsRow`)
+3. callbacks
+4. images
+5. menus
+6. buttons
+7. checkboxes
+8. scrollable texts
+9. texts
+10. `display(true)`
 
-```cpp
-struct UIScrollableTextSpec {
-    int16_t x, y, w, h;
-    const GFXfont *font;
-    bool fillBackground;
-    String text;            // Multi-line text (\n-separated)
-    const String *textRef;  // Optional: reference to large document
-    uint16_t firstLine;     // Start line for scrolling
-    uint8_t maxLines;       // Lines to render
-    int16_t lineHeight;     // Pixels between lines
-    bool centered;          // Center lines horizontally
-    bool wrapLongLines;     // Wrap text that exceeds width
-    bool wrapContinuationAlignRight;  // Right-align wrapped continuation
-};
-```
+`renderWatchfaceSpec()` uses a similar content order but without control-row dispatch.
 
-### UICallbackSpec
+## 2.6 Input helper
 
-```cpp
-struct UICallbackSpec {
-    void (*draw)(WatchyGxDisplay &display, void *userData);
-    void *userData;
-};
-```
+`buttonPressed(pin, debounceMs=80, activeLow=true)`:
 
-Custom drawing callback for advanced rendering.
+- per-pin debounce slots
+- edge-latched behavior (fires once per press until release)
+- defaults tuned for menu responsiveness
 
-### UIAppSpec
+## 2.7 Display wrapper methods
 
-Top-level container for a complete screen layout:
-
-```cpp
-struct UIAppSpec {
-    const UITextSpec *texts;
-    uint8_t textCount;
-    
-    const UIImageSpec *images;
-    uint8_t imageCount;
-    
-    const UIMenuSpec *menus;
-    uint8_t menuCount;
-    
-    const UIButtonSpec *buttons;
-    uint8_t buttonCount;
-    
-    const UICheckboxSpec *checkboxes;
-    uint8_t checkboxCount;
-    
-    const UIScrollableTextSpec *scrollTexts;
-    uint8_t scrollTextCount;
-    
-    const UICallbackSpec *callbacks;
-    uint8_t callbackCount;
-    
-    UIControlsRowLayout controls[4];
-    uint8_t controlCount;
-    
-    UIAppChromeSpec chrome{};
-};
-```
+`UiSDK` exposes inline wrappers for core GxEPD/GFX methods (`init`, `setFullWindow`, `fillScreen`, `drawBitmap`, text setters, bounds, etc.) so app/watchface code can stay namespace-consistent.
 
 ---
 
-## Rendering Functions
+## 3) UiTemplates reference
 
-### Spec Renderers
+Source: `src/sdk/UiTemplates.h`, `src/sdk/UiTemplates.cpp`
 
-```cpp
-void UiSDK::renderText(WatchyGxDisplay &display, const UITextSpec &spec);
-void UiSDK::renderImage(WatchyGxDisplay &display, const UIImageSpec &spec);
-void UiSDK::renderMenu(WatchyGxDisplay &display, const UIMenuSpec &spec);
-void UiSDK::renderButton(WatchyGxDisplay &display, const UIButtonSpec &spec);
-void UiSDK::renderCheckbox(WatchyGxDisplay &display, const UICheckboxSpec &spec);
-void UiSDK::renderScrollableText(WatchyGxDisplay &display, const UIScrollableTextSpec &spec);
-void UiSDK::renderCallback(WatchyGxDisplay &display, const UICallbackSpec &spec);
-```
+`UiTemplates` provides reusable loops/layouts for common app UX patterns.
 
-### Full-App Rendering
+## 3.1 Control capture/event model
 
-```cpp
-void UiSDK::renderApp(Watchy &watchy, const UIAppSpec &app);
-void UiSDK::renderWatchfaceSpec(Watchy &watchy, const UIAppSpec &app);
-```
+### `enum class ControlEvent`
 
-Renders all elements in a `UIAppSpec` in order:
-1. Images
-2. Texts
-3. Menus
-4. Buttons
-5. Checkboxes
-6. Scrollable texts
-7. Callbacks
-8. Controls row (if `chrome.drawControlsRow` is true)
+- `None`, `Back`, `Up`, `Accept`, `Down`
 
----
+### Capture APIs
 
-## Theme System
+- `beginControlCapture()` / `endControlCapture()`
+- `isCapturingControls()`
+- `postControlEvent()`, `takeControlEvent()`, `clearControlEvent()`
 
-### Polarity Functions
+Use capture mode when running blocking template loops so global button callbacks post events instead of directly invoking app actions.
 
-```cpp
-void UiSDK::setPolarity(WatchfacePolarity polarity);
-WatchfacePolarity UiSDK::getPolarity();
-WatchfacePolarity UiSDK::getThemePolarity();
-WatchfacePolarity UiSDK::polarityForFaceId(uint8_t id);
-WatchfacePolarity UiSDK::liveThemePolarity();
-```
+### Press carry-over guard
 
-### Color Helpers
+`waitForAllButtonsReleased(stableMs=40, timeoutMs=600)` prevents accidental immediate trigger when transitioning screens.
 
-```cpp
-uint16_t UiSDK::getWatchfaceBg(WatchfacePolarity polarity);
-uint16_t UiSDK::getWatchfaceFg(WatchfacePolarity polarity);
-bool UiSDK::shouldInvertBitmap(const Palette &palette);
-```
+## 3.2 Layout structs
 
-### Using the Theme System
+- `ControlsRowLayout`: custom coordinate placement for labels.
+- `MenuPickerLayout`: header/menu positions, row count, optional auto-scroll.
+- `ConfirmDialogLayout`: complete 2-option dialog geometry.
+- `ToastLayout`: small two-option floating prompt geometry.
+- `HistoryPickerSpec`: NVS-backed history menu behavior and labels.
 
-**In your watchface draw function:**
+## 3.3 Menu helpers
 
-```cpp
-void MyWatchface::draw(Watchy &watchy) {
-    // Tell SDK how this watchface was authored
-    UiSDK::setPolarity(WatchfacePolarity::BlackOnWhite);
-    
-    auto &display = watchy.display;
-    UiSDK::setFullWindow(display);
-    
-    // Get theme colors (auto-inverts if needed)
-    uint16_t bg = UiSDK::getWatchfaceBg(BASE_POLARITY);
-    uint16_t fg = UiSDK::getWatchfaceFg(BASE_POLARITY);
-    
-    UiSDK::fillScreen(display, bg);
-    UiSDK::setTextColor(display, fg);
-    // ... rest of drawing code
-}
-```
+- `calcMenuStartIndex(selected, visibleRows, itemCount)`
+- `keepMenuSelectionVisible(selected, visibleRows, itemCount, inOutStartIndex)`
 
-**Macro**: `BASE_POLARITY` evaluates to current theme polarity at runtime.
+Use the second helper when you want “scroll inertia” (adjust only when selection leaves viewport).
 
----
+## 3.4 Page renderers
 
-## Font Management
+- `renderBarePage()`
+- `renderPageWithControlsAt()`
+- `renderMenuPickerPage()`
+- `renderScrollablePage()` / `renderPage()` alias
+- `renderStatusLines()`
+- `renderControlsRowAt()`
+- `renderCenteredMonospaceHighlight()`
 
-### Built-in Fonts
+## 3.5 Blocking template loops
 
-```cpp
-const GFXfont *UiSDK::defaultFont();        // FreeMonoBold9pt7b
-const GFXfont *UiSDK::tinyFont5x7();        // 5x7 bitmap font
-const GFXfont *UiSDK::tinyFont6x8();        // 6x8 proportional bitmap font
-const GFXfont *UiSDK::tinyMono6x8();        // 6x8 monospace bitmap font
-```
+### `runMenuPicker(...)`
 
-### Font Registry
+- BACK returns `-1`
+- UP/DOWN cycles selection with wrap
+- ACCEPT returns selected index and updates `inOutSelectedIndex`
 
-Register custom fonts for reuse across your app:
+### `runScrollableViewer(...)`
 
-```cpp
-bool UiSDK::registerFont(uint8_t slot, const GFXfont *font);
-const GFXfont *UiSDK::getFont(uint8_t slot);
-```
+- BACK exits (`ViewerAction::Back`)
+- UP/DOWN scroll
+- optional ACCEPT exit (`ViewerAction::Accept`) when `acceptEnabled=true`
+- supports hold-repeat scrolling (very short repeat interval)
 
-**Slots**:
-- Slot 0: `FreeMonoBold9pt7b` (default)
-- Slot 1: `tinyFont6x8`
-- Slot 2: `tinyMono6x8`
-- Slot 3: `tinyFont5x7`
-- Slots 4-63: Available for custom fonts
+### `runRefreshableScrollableViewer(...)`
 
-**Example**:
+- same scrolling behavior
+- ACCEPT triggers rebuild callback (`BuildScrollableTextFn`)
 
-```cpp
-#include "sdk/Fonts.h"
+### `runConfirmDialog2(...)`
 
-void setup() {
-    UiSDK::registerFont(10, &FreeSerif18pt7b);
-    UiSDK::registerFont(11, &FreeMono12pt7b);
-}
+- two-option selector
+- BACK = cancel/false
+- ACCEPT returns true only if option0 selected
 
-void draw() {
-    UiSDK::setFont(display, UiSDK::getFont(10));  // FreeSerif18pt
-}
-```
+### `runToast2Option(...)`
+
+- BACK returns `-1`
+- ACCEPT returns chosen option index (`0` or `1`)
+
+## 3.6 NVS history picker flow
+
+### `runHistoryPickerNvs(...)`
+
+Provides:
+
+- list of existing history entries
+- optional example quick-pick
+- “new target” row
+- BACK toast with delete-current or exit-app choices
+
+Outputs:
+
+- selected value (`outValue`)
+- `HistoryPickKind` (`HistoryItem` / `ExampleQuickPick` / `NewTarget`)
+
+### `runHistoryPickerEditAndPersistNvs(...)`
+
+Pipeline:
+
+1. pick from history
+2. edit value via `NetUtils::editTarget()`
+3. persist only when non-empty and changed
+
+### `historyAddUniqueNvs(...)`
+
+Adds unique value to history; drops oldest when max entries reached.
 
 ---
 
-## Input Helpers
+## 4) NetUtils reference
 
-### Button Reading
+Source: `src/sdk/NetUtils.h`, `src/sdk/NetUtils.cpp`
 
-```cpp
-bool UiSDK::buttonPressed(uint8_t pin, uint32_t debounceMs = 80, bool activeLow = true);
-```
+## 4.1 Data struct
 
-Debounced button state with automatic latch (returns `true` only once per press until released).
+### `struct NetResponse`
 
-**Standard Watchy Pins**:
-- `MENU_BTN_PIN` (26): Menu button (top-left)
-- `BACK_BTN_PIN` (25): Back button (bottom-left)
-- `UP_BTN_PIN` (32): Up button (top-right)
-- `DOWN_BTN_PIN` (4): Down button (bottom-right)
+- `httpCode`
+- `body`
+- `error`
+- `location`
+- `contentType`
+- `contentEncoding`
 
-**Example**:
+## 4.2 Wi-Fi/session helper
 
-```cpp
-if (UiSDK::buttonPressed(MENU_BTN_PIN)) {
-    // Menu button was pressed
-}
-```
+`ensureWiFi(watchy, retries, attemptTimeoutMs)`:
 
-### Controls Row
+- delegates to `watchy.connectWiFi()`
+- retries connection attempts
+- waits for `WL_CONNECTED`
 
-```cpp
-struct UIControlsRowLayout {
-    const char *label;
-    void (Watchy::*callback)();
-};
+## 4.3 HTTP helpers
 
-void UiSDK::renderControlsRow(Watchy &watchy, const UIControlsRowLayout layout[4]);
-```
+### `httpGet(url, timeoutMs, shutdownRadio)`
 
-Draws a standard button hint row (e.g., "BACK", "UP", "OK", "DOWN").
+- follows redirects manually (bounded)
+- supports HTTPS with insecure TLS client
+- forces `Accept-Encoding: identity` (avoid unsupported compression decoding)
+- reads response stream incrementally with memory cap
+- keeps head + rolling tail for oversized payloads
+- can disable Wi-Fi/BT after call (`shutdownRadio=true`)
 
----
+### `httpPostForm(url, formBody, origin, referer, acceptLanguage, timeoutMs, shutdownRadio)`
 
-## Best Practices
+Same resilience behavior as GET + form URL-encoded POST body.
 
-### 1. Always Set Polarity
+## 4.4 Parsing/lookup/network tools
 
-```cpp
-void MyWatchface::draw(Watchy &watchy) {
-    UiSDK::setPolarity(WatchfacePolarity::BlackOnWhite);  // <-- Important!
-    // ... rest of code
-}
-```
+- `parseIp(ip, out[4])`
+- `whoisLookup(target, timeoutMs, maxBytes)` (IANA + referral hop)
+- `dnsLookup(name, qtype, timeoutMs, attempts)` (minimal UDP DNS client; auto PTR for IPv4)
+- `traceroute(host, maxHops, timeoutMs)` (ICMP echo TTL probing)
 
-This ensures bitmaps and colors invert correctly when theme changes.
+## 4.5 Uniform target editor
 
-### 2. Use Theme Colors
+### `editTarget(watchy, buffer, maxLen, title, defaultValue)`
 
-```cpp
-uint16_t bg = UiSDK::getWatchfaceBg(BASE_POLARITY);
-uint16_t fg = UiSDK::getWatchfaceFg(BASE_POLARITY);
-UiSDK::fillScreen(display, bg);
-UiSDK::setTextColor(display, fg);
-```
+Behavior:
 
-Never hardcode `GxEPD_WHITE` / `GxEPD_BLACK` directly — use theme helpers.
+- allowed chars: space, `a-z`, `0-9`, `-`, `.`
+- UP/DOWN: change current character
+- ACCEPT: append char
+- BACK: delete char; if empty => cancel
+- double ACCEPT on trailing space => finish
 
-### 3. Store Bitmaps in PROGMEM
+State helpers:
 
-```cpp
-const uint8_t PROGMEM myBitmap[] = { /* ... */ };
-
-UIImageSpec img = {
-    .bitmap = myBitmap,
-    .x = 10, .y = 10, .w = 32, .h = 32,
-    .fromProgmem = true,  // <-- Important for PROGMEM bitmaps
-    .fillBackground = false,
-    .polarityAuthored = WatchfacePolarity::BlackOnWhite
-};
-```
-
-### 4. Minimize Display Updates
-
-```cpp
-UiSDK::setFullWindow(display);
-// ... draw everything ...
-UiSDK::displayUpdate(display, true);  // Only call once at end
-```
-
-Each `displayUpdate()` triggers a full e-paper refresh (~1-2 seconds).
-
-### 5. Use Specs for Complex Layouts
-
-Instead of manual positioning:
-
-```cpp
-UITextSpec timeText = {
-    .x = 50, .y = 100, .w = 0, .h = 0,
-    .font = &FreeMonoBold24pt7b,
-    .fillBackground = false,
-    .invert = false,
-    .text = "12:34"
-};
-
-UIImageSpec logoImg = {
-    .bitmap = logo,
-    .x = 10, .y = 10, .w = 48, .h = 48,
-    .fromProgmem = true,
-    .fillBackground = false,
-    .polarityAuthored = WatchfacePolarity::BlackOnWhite
-};
-
-UIAppSpec app = {
-    .images = &logoImg, .imageCount = 1,
-    .texts = &timeText, .textCount = 1,
-    // ... other elements ...
-};
-
-UiSDK::renderWatchfaceSpec(watchy, app);
-```
+- `consumeExitToMenuRequest()` consumes long-press/exit request flag.
 
 ---
 
-## Examples
+## 5) WatchfaceRegistry reference
 
-### Minimal Watchface
+Source: `src/sdk/WatchfaceRegistry.h`, `src/sdk/WatchfaceRegistry.cpp`
+
+Namespace: `WatchfaceRegistry`
+
+### `struct Entry`
+
+- `const char *name`
+- `void (*draw)(Watchy &watchy)`
+
+### Globals
+
+- `kWatchfaceCount`
+- `kWatchfaceMenuItems[]`
+- `kWatchfaces[]`
+
+Purpose:
+
+- single source of truth for watchface selector menu labels and draw dispatch function pointers.
+- order is meaningful (selector uses table order).
+
+---
+
+## 6) Fonts reference
+
+Source: `src/sdk/Fonts.h`
+
+Contains:
+
+- broad Adafruit GFX font includes (Mono/Sans/Serif families and variants)
+- tiny bitmap fallback arrays:
+  - `sTinyFont5x7`
+  - `sTinyFont6x8`
+  - `sTinyMonospaceFont6x8`
+
+`UiSDK` uses sentinel pointers to route tiny fonts through a lightweight bitmap renderer.
+
+---
+
+## 7) Controls embedding patterns
+
+## 7.1 Standard app row (recommended)
+
+Populate `UIAppSpec.controls[4]` with `BACK/UP/ACCEPT/DOWN` labels + callbacks and call `UiSDK::renderApp()`.
+
+Example:
 
 ```cpp
-#include "sdk/UiSDK.h"
-
-class SimpleWatchface : public Watchface {
-public:
-    void draw(Watchy &watchy) override {
-        UiSDK::setPolarity(WatchfacePolarity::BlackOnWhite);
-        
-        auto &display = watchy.display;
-        uint16_t bg = UiSDK::getWatchfaceBg(BASE_POLARITY);
-        uint16_t fg = UiSDK::getWatchfaceFg(BASE_POLARITY);
-        
-        UiSDK::setFullWindow(display);
-        UiSDK::fillScreen(display, bg);
-        
-        UiSDK::setFont(display, &FreeMonoBold24pt7b);
-        UiSDK::setTextColor(display, fg);
-        UiSDK::setCursor(display, 30, 100);
-        
-        char timeStr[6];
-        sprintf(timeStr, "%02d:%02d", watchy.currentTime.Hour, watchy.currentTime.Minute);
-        UiSDK::print(display, timeStr);
-        
-        UiSDK::displayUpdate(display);
-    }
-};
+UIAppSpec app{};
+app.controls[0] = {"BACK", &Watchy::backPressed};
+app.controls[1] = {"UP", &Watchy::upPressed};
+app.controls[2] = {"ACCEPT", &Watchy::menuPressed};
+app.controls[3] = {"DOWN", &Watchy::downPressed};
+UiSDK::renderApp(watchy, app);
 ```
 
-### Using Specs
+## 7.2 Coordinate-specific controls row
+
+When a screen must match a legacy pixel layout, draw labels with `UiTemplates::renderControlsRowAt(...)` and keep input loop separate.
+
+## 7.3 Template-owned input loops
+
+For menu/viewer/dialog screens, prefer `UiTemplates::run*` APIs. They:
+
+- establish control capture
+- guard against carried-over presses
+- own event polling and return high-level actions
+
+---
+
+## 8) Input behavior details
+
+## 8.1 Electrical/read assumptions
+
+- buttons are active-low (`digitalRead(pin) == ACTIVE_LOW`)
+- debounce in `UiSDK::buttonPressed` is edge-latched
+
+## 8.2 Repeat behavior
+
+- generic control rows: debounced press events
+- scroll viewers: additional raw held-state sampling for fast UP/DOWN repeat
+
+## 8.3 Event ownership
+
+- if using `UiTemplates` blocking loops, always pair `beginControlCapture()` with `endControlCapture()`.
+- always call `waitForAllButtonsReleased()` when entering a modal/loop from another interactive screen.
+
+---
+
+## 9) Keeping code neat (project conventions)
+
+1. **Use spec structs, not ad-hoc draw code**, unless truly custom.
+2. **Keep rendering declarative**: build `UIAppSpec` near top of draw function, then render once.
+3. **Separate input from painting**:
+   - rendering helpers are render-only
+   - template loops own input
+4. **Reuse templates** for repeated families (menu, scroll viewer, confirm, history picker).
+5. **Use `textRef` for large text payloads** to avoid unnecessary `String` copies.
+6. **Respect polarity/theme APIs**; avoid hardcoding black/white where theme adaptation is expected.
+7. **Cap buffers and list sizes** with provided constants (`HISTORY_MAX_ENTRIES`, `HISTORY_MAX_ENTRY_LEN`).
+8. **Persist selection state in/out parameters** (`inOutSelectedIndex`, `inOutFirstLine`) for good UX continuity.
+
+---
+
+## 10) Practical usage recipes
+
+## 10.1 Minimal static page
 
 ```cpp
-void SimpleWatchface::draw(Watchy &watchy) {
-    UiSDK::setPolarity(WatchfacePolarity::BlackOnWhite);
-    
-    char timeStr[6];
-    sprintf(timeStr, "%02d:%02d", watchy.currentTime.Hour, watchy.currentTime.Minute);
-    
-    UITextSpec timeText = {
-        .x = 30, .y = 100,
-        .w = 0, .h = 0,
-        .font = &FreeMonoBold24pt7b,
-        .fillBackground = false,
-        .invert = false,
-        .text = String(timeStr)
-    };
-    
-    UIAppSpec app = {
-        .texts = &timeText,
-        .textCount = 1
-    };
-    
-    app.chrome.beginFullScreen = true;
-    app.chrome.drawControlsRow = false;
-    
-    UiSDK::renderWatchfaceSpec(watchy, app);
-}
+UITextSpec title{.x=10, .y=36, .font=UiSDK::defaultFont(), .text="My App"};
+UIAppSpec app{};
+app.texts = &title;
+app.textCount = 1;
+app.controls[0] = {"BACK", &Watchy::backPressed};
+UiSDK::renderApp(watchy, app);
 ```
 
-### Button Handling
+## 10.2 Menu picker page
 
 ```cpp
-void MyApp::run(Watchy &watchy) {
-    auto &display = watchy.display;
-    
-    while (true) {
-        UiSDK::fillScreen(display, GxEPD_WHITE);
-        UiSDK::setFont(display);
-        UiSDK::setTextColor(display, GxEPD_BLACK);
-        
-        UiSDK::setCursor(display, 10, 50);
-        UiSDK::print(display, "Press MENU to exit");
-        UiSDK::displayUpdate(display);
-        
-        if (UiSDK::buttonPressed(MENU_BTN_PIN)) {
-            break;  // Exit app
-        }
-        
-        if (UiSDK::buttonPressed(UP_BTN_PIN)) {
-            // Handle UP
-        }
-        
-        delay(50);
-    }
+int8_t selected = 0;
+int8_t result = UiTemplates::runMenuPicker(
+  watchy,
+  "Choose",
+  items,
+  itemCount,
+  selected
+);
+```
+
+## 10.3 Scrollable results viewer
+
+```cpp
+uint16_t firstLine = 0;
+UiTemplates::ViewerAction action = UiTemplates::runScrollableViewer(
+  watchy,
+  app,
+  scrollSpec,
+  firstLine,
+  "BACK", "UP", "ACCEPT", "DOWN",
+  true
+);
+```
+
+## 10.4 Network + edit + persist flow
+
+```cpp
+int8_t selectedIdx = -1;
+char target[128] = {};
+UiTemplates::HistoryPickerSpec spec{};
+spec.nvsNamespace = "ping_hist";
+
+if (UiTemplates::runHistoryPickerEditAndPersistNvs(
+      watchy, spec, target, sizeof(target), "Target", selectedIdx)) {
+  // run request with target
 }
 ```
 
 ---
 
-## Constants
+## 11) Notes on `src/sdk/UI_TEMPLATES.md`
 
-### Colors
-
-```cpp
-#define GxEPD_BLACK 0x0000
-#define GxEPD_WHITE 0xFFFF
-```
-
-### Display Dimensions
-
-```cpp
-WatchyDisplay::WIDTH  = 200
-WatchyDisplay::HEIGHT = 200
-```
-
-### Button Pins
-
-```cpp
-#define MENU_BTN_PIN 26    // Top-left
-#define BACK_BTN_PIN 25    // Bottom-left
-#define UP_BTN_PIN   32    // Top-right
-#define DOWN_BTN_PIN 4     // Bottom-right
-```
-
----
-
-## Advanced Topics
-
-### Custom Polarity Table
-
-If adding a new watchface, update `UiSDK::polarityForFaceId()` in [src/sdk/UiSDK.cpp](src/sdk/UiSDK.cpp):
-
-```cpp
-WatchfacePolarity UiSDK::polarityForFaceId(uint8_t id) {
-    switch (id) {
-        case 99:  // MyNewWatchface
-            return WatchfacePolarity::WhiteOnBlack;
-        // ... existing cases ...
-    }
-}
-```
-
-### Direct Display Access
-
-If you need low-level control, you can bypass UiSDK wrappers and call `display.*` directly:
-
-```cpp
-display.fillScreen(GxEPD_WHITE);
-display.setFont(&FreeSans12pt7b);
-display.println("Raw display call");
-```
-
-However, this **bypasses theme inversion** and should only be used for specialized rendering.
-
----
-
-## See Also
-
-- [examples/HelloWorldApp/](examples/HelloWorldApp/) — Complete example app
-- [src/watchfaces/](src/watchfaces/) — 76+ watchfaces using UiSDK
-- [THEME_SYSTEM.md](THEME_SYSTEM.md) — Deep dive into polarity/inversion logic
-- [FIRMWARE_MANUAL.md](FIRMWARE_MANUAL.md) — User-facing firmware guide
-
----
-
-**Last Updated**: 2025-01-XX  
-**License**: GPLv3  
-**Maintainer**: Elías A. Angulo Klein ([crossplatformdev](https://github.com/crossplatformdev))
+That file is historical design notes and can drift from implementation. Prefer `UiTemplates.h/.cpp` as source of truth; this root `SDK_REFERENCE.md` is aligned to current code.
