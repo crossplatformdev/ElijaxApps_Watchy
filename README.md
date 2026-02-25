@@ -26,10 +26,6 @@
 
 ## Screenshots
 
-| Watchface Examples | Apps |
-|-------------------|------|
-| ![7_SEG](docs/images/7seg.png) ![Analog](docs/images/analog.png) ![Pokemon](docs/images/pokemon.png) | ![Menu](docs/images/menu.png) ![Weather](docs/images/weather.png) |
-
 *76+ watchfaces with themes from retro LCD displays to modern digital art*
 
 ---

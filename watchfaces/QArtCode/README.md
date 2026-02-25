@@ -8,5 +8,5 @@ The reason for this is that the time display in the centre is extremely small: p
 
 It needs WiFi to work, and if you see [this image](broken.png) that is the watch's way of telling you that there is a problem connecting. To get more debug data, start Serial Monitor from the Arduino IDE.
 
-It relies on a remote server to generate the necessary bytes that represent the 40,000 pixels for the Watchy display. By default it retrieves this from https://qartcode.herokuapp.com/ but that source code is available for you to modify in the [Python](../../Python/) directory of this repo.
+It relies on a remote server to generate the necessary bytes that represent the 40,000 pixels for the Watchy display. By default it retrieves this from https://qartcode.herokuapp.com/ but that source code is available for you to modify in the [Python](https://github.com/mehtmehtsen/QArtCode/tree/master/Python) directory of the original repo.
 

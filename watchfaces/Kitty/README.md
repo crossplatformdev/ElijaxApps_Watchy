@@ -1,5 +1,5 @@
 
-![Kitty Watchy face, featuring Ghost the cat](GhostKittyWatchFace.jpg?raw=true "Title")
+![Kitty Watchy face, featuring Ghost the cat](GhostKittyWatchFace.jpg "Title")
 # Kitty for Watchy
 
 A watchface for [Watchy](https://watchy.sqfmi.com/) featuring my beloved cat, Ghost. 

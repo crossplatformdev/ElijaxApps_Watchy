@@ -1,6 +1,6 @@
 # Outdated
 
-It has come to my attention that this is outdated. Make sure to refer [https://github.com/mehtmehtsen/BotWatchy/issues/1](here) for more information and check the projects forked from this one.
+It has come to my attention that this is outdated. Make sure to refer [here](https://github.com/mehtmehtsen/BotWatchy/issues/1) for more information and check the projects forked from this one.
 
 # BotWatchy
 
