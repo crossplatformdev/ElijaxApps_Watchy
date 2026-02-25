@@ -1,0 +1,20 @@
+#ifndef WATCHY_7_SEG_H
+#define WATCHY_7_SEG_H
+
+#include <WatchySdk.h>
+#include "Seven_Segment10pt7b.h"
+#include "DSEG7_Classic_Regular_15.h"
+#include "DSEG7_Classic_Bold_25.h"
+#include "DSEG7_Classic_Regular_39.h"
+#include "icons.h"
+
+namespace Watchy7SEG {
+            void drawWatchFace();
+        void drawTime();
+        void drawDate();
+        void drawSteps();
+        void drawWeather();
+        void drawBattery();
+}
+
+#endif

@@ -1,40 +1,30 @@
 #include "Watchy_DOS.h"
+#include "Px437_IBM_BIOS5pt7b.h"
 
-#include "../../sdk/UiSDK.h"
-
-void WatchyDOS::drawWatchFace(){
-    const uint16_t fgColor = UiSDK::getWatchfaceFg(BASE_POLARITY);
-    UiSDK::initScreen(display);
+void WatchyDOS::drawWatchFace(Watchy &watch){
     char time[6];
-    time[0] = '0' + ((currentTime.Hour/10)%10);
-    time[1] = '0' + (currentTime.Hour%10);
+    time[0] = '0' + ((watch.currentTime.Hour/10)%10);
+    time[1] = '0' + (watch.currentTime.Hour%10);
     time[2] = ':';
-    time[3] = '0' + ((currentTime.Minute/10)%10);
-    time[4] = '0' + (currentTime.Minute%10);
+    time[3] = '0' + ((watch.currentTime.Minute/10)%10);
+    time[4] = '0' + (watch.currentTime.Minute%10);
     time[5] = 0;
-    UiSDK::setTextColor(display, fgColor);
-    UiSDK::setFont(display, &Px437_IBM_BIOS5pt7b);
-    UiSDK::setCursor(display, 0, 24);
-    UiSDK::println(display, "WATCHY-DOS 1.1.8");
-    UiSDK::println(display, "Copyright (c) 2020");
-    UiSDK::println(display, " ");
-    UiSDK::print(display, "AUTOEXEC BAT ");
-    UiSDK::println(display, time);
-    UiSDK::print(display, "COMMAND  COM ");
-    UiSDK::println(display, time);
-    UiSDK::print(display, "CONFIG   SYS ");
-    UiSDK::println(display, time);
-    UiSDK::print(display, "ESPTOOL  PY  ");
-    UiSDK::println(display, time);
-    UiSDK::println(display, " ");
-    UiSDK::println(display, "  4 files 563 bytes");
-    UiSDK::println(display, "  2048 bytes free");
-    UiSDK::println(display, " ");
-    UiSDK::println(display, "<C:\\>esptool");
-}
-
-void showWatchFace_DOS(Watchy &watchy) {
-    WatchyDOS face(watchy.settings);
-    face.currentTime = watchy.currentTime;
-    face.drawWatchFace();
+    Watchy::display.setFont(&Px437_IBM_BIOS5pt7b);
+    Watchy::display.setCursor(0, 24);
+    Watchy::display.println("WATCHY-DOS 1.1.8");
+    Watchy::display.println("Copyright (c) 2020");
+    Watchy::display.println(" ");
+    Watchy::display.print("AUTOEXEC BAT ");
+    Watchy::display.println(time);
+    Watchy::display.print("COMMAND  COM ");
+    Watchy::display.println(time);
+    Watchy::display.print("CONFIG   SYS ");
+    Watchy::display.println(time);
+    Watchy::display.print("ESPTOOL  PY  ");
+    Watchy::display.println(time);
+    Watchy::display.println(" ");
+    Watchy::display.println("  4 files 563 bytes");
+    Watchy::display.println("  2048 bytes free");
+    Watchy::display.println(" ");
+    Watchy::display.println("<C:\\>esptool");
 }

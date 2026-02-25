@@ -1,2 +1,0 @@
-python generateGlossPow.py
-pause
