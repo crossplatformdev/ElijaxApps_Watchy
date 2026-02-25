@@ -1,12 +1,14 @@
+#ifndef WATCHY_WRAPPER_INCLUDE
+
 #include "Watchy_Mario.h"
-#include "./../../settings/settings.h"
+#include "settings.h"
 
-#ifdef WATCHY_STANDALONE_WATCHFACE
-
-static WatchyMario watchy(settings);
+WatchyMario watchy(settings);
 
 void setup(){
   watchy.init();
 }
+
+void loop(){}
 
 #endif

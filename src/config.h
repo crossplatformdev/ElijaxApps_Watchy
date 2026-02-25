@@ -4,11 +4,6 @@
 // Versioning
 #define WATCHY_LIB_VER "1.4.14"
 
-// Compatibility define used by some upstream Watchy watchfaces.
-#ifndef TAG
-#define TAG "Watchy"
-#endif
-
 //pins
 
 #ifdef ARDUINO_ESP32S3_DEV //V3
@@ -96,57 +91,30 @@
 //display
 #define DISPLAY_WIDTH 200
 #define DISPLAY_HEIGHT 200
-
-// NOTE: Do NOT define global macros named SDA/SCL.
-// Arduino-ESP32 defines SDA/SCL as constants in pins_arduino.h; defining macros
-// here breaks compilation when those headers are included.
-
-#ifndef ADC_PIN
-#define ADC_PIN BATT_ADC_PIN
-#endif
-
-#ifndef RTC_PIN
-#define RTC_PIN RTC_INT_PIN
-#endif
-
-#ifndef CS
-#define CS DISPLAY_CS
-#endif
-
-#ifndef DC
-#define DC DISPLAY_DC
-#endif
-
-#ifndef RESET
-#define RESET DISPLAY_RES
-#endif
-
-// NOTE: Do NOT define a global macro named BUSY.
-// ESP-IDF/ESP32 ROM headers define an enum value BUSY (e.g. in ets_sys.h),
-// and a macro here breaks compilation.
+// battery
+#define WATCHY_DEFAULT_BATTERY_CAPACITY_MAH 150.0f
+#define WATCHY_BATTERY_EMPTY_VOLTAGE 3.20f
+#define WATCHY_BATTERY_FULL_VOLTAGE 3.95f
 // wifi
-#define WIFI_AP_TIMEOUT 60
+#define WIFI_CONNECT_TIMEOUT 10
+#define WIFI_AP_TIMEOUT 180
 #define WIFI_AP_SSID    "Watchy AP"
 // menu
 #define WATCHFACE_STATE -1
 #define MAIN_MENU_STATE 0
 #define APP_STATE       1
 #define FW_UPDATE_STATE 2
-#define MENU_HEIGHT     20
-#define MENU_LENGTH     7
+#define MENU_HEIGHT     25
+#define MENU_PAGE_LENGTH 7
+#define TIDE_STATION    "Brest"
 // set time
 #define SET_HOUR   0
 #define SET_MINUTE 1
 #define SET_YEAR   2
 #define SET_MONTH  3
 #define SET_DAY    4
-#define SET_TZ     5
+#define SET_GMT_OFFSET 5
 #define HOUR_12_24 24
-
-// Compatibility define used by many upstream Watchy watchfaces.
-#ifndef YEAR_OFFSET
-#define YEAR_OFFSET 1970
-#endif
 // BLE OTA
 #define BLE_DEVICE_NAME        "Watchy BLE OTA"
 #define WATCHFACE_NAME         "Watchy 7 Segment"

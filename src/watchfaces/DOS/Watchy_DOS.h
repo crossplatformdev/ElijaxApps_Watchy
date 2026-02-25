@@ -1,8 +1,7 @@
 #ifndef WATCHY_DOS_H
 #define WATCHY_DOS_H
 
-#include "../../watchy/Watchy.h"
-#include "Px437_IBM_BIOS5pt7b.h"
+#include <Watchy.h>
 
 class WatchyDOS : public Watchy{
     using Watchy::Watchy;

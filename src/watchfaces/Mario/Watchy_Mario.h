@@ -1,8 +1,7 @@
 #ifndef WATCHY_MARIO_H
 #define WATCHY_MARIO_H
 
-#include "./../../watchy/Watchy.h"
-#include "mario.h"
+#include <Watchy.h>
 
 class WatchyMario: public Watchy{
     using Watchy::Watchy;
